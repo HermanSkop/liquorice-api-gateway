@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.kafka;
+package org.example.liquoriceapigateway.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -13,13 +13,14 @@ import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 
 @Service
-@RequiredArgsConstructor
 @Slf4j
+@RequiredArgsConstructor
 public class ReactiveKafkaProducerService {
     
     private final KafkaSender<String, Object> kafkaSender;
     private final ConcurrentHashMap<String, MonoSink<Object>> pendingRequests = new ConcurrentHashMap<>();
     
+
     /**
      * Sends a message to Kafka and returns a Mono that will complete when the response is received
      *
@@ -35,8 +36,7 @@ public class ReactiveKafkaProducerService {
         
         // Create a producer record with the correlation ID in the headers
         ProducerRecord<String, Object> producerRecord = new ProducerRecord<>(topic, data);
-        producerRecord.headers().add("correlationId", correlationId.getBytes());
-        
+
         // Send the message
         return kafkaSender.send(Mono.just(SenderRecord.create(producerRecord, correlationId)))
                 .next()

@@ -5,8 +5,8 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.liquoriceapigateway.config.AppConfig;
 import org.example.liquoriceapigateway.config.Constants;
+import org.example.liquoriceapigateway.config.JwtConfig;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
@@ -21,7 +21,7 @@ import java.util.Date;
 public class TokenBlacklistService {
 
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
-    private final AppConfig appConfig;
+    private final JwtConfig jwtConfig;
 
     public Mono<Void> blacklistToken(String token, String reason) {
         long ttl = getTokenRemainingLifetimeMillis(token) + Constants.JWT_ACCESS_TOKEN_SECONDS_TIMEOUT_SKEW * 1000;
@@ -51,6 +51,6 @@ public class TokenBlacklistService {
     }
 
     private Key getSigningKey() {
-        return Keys.hmacShaKeyFor(appConfig.getSecretKey().getBytes());
+        return Keys.hmacShaKeyFor(jwtConfig.getSecretKey().getBytes());
     }
 }

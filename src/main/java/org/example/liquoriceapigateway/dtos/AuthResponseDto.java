@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.models;
+package org.example.liquoriceapigateway.dtos;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -8,7 +8,7 @@ import java.util.Collection;
 @Data
 @AllArgsConstructor
 @NoArgsConstructor
-public class AuthResponse {
+public class AuthResponseDto {
     private String id;
     private String email;
     private String hashedPassword;

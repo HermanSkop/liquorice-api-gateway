@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.kafka;
+package org.example.liquoriceapigateway.config.kafka;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
@@ -11,6 +11,7 @@ import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
+import reactor.kafka.receiver.ReceiverOptions;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
 
@@ -37,7 +38,7 @@ public class KafkaConfig {
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
 
         configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG,
-                "org.example.liquoriceapigateway.kafka.interceptors.CorrelationIdProducerInterceptor");
+                "org.example.liquoriceapigateway.config.kafka.CorrelationIdProducerInterceptor");
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
@@ -93,5 +94,18 @@ public class KafkaConfig {
         // Enable manual acknowledgment to ensure message processing
         factory.getContainerProperties().setAckMode(org.springframework.kafka.listener.ContainerProperties.AckMode.MANUAL_IMMEDIATE);
         return factory;
+    }
+
+    @Bean
+    public ReceiverOptions<String, Object> reactiveReceiverOptions() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-reactive");
+        props.put(ConsumerConfig.KEY_DESERIALIZER_CLASS_CONFIG, StringDeserializer.class);
+        props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, JsonDeserializer.class);
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "latest");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+
+        return ReceiverOptions.create(props);
     }
 }

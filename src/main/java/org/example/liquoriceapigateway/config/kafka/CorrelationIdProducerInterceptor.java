@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.kafka.interceptors;
+package org.example.liquoriceapigateway.config.kafka;
 
 import org.apache.kafka.clients.producer.ProducerInterceptor;
 import org.apache.kafka.clients.producer.ProducerRecord;
@@ -19,20 +19,12 @@ public class CorrelationIdProducerInterceptor implements ProducerInterceptor<Str
     @Override
     public ProducerRecord<String, Object> onSend(ProducerRecord<String, Object> record) {
         Headers headers = record.headers();
-        boolean hasCorrelationId = false;
-        
-        for (org.apache.kafka.common.header.Header header : headers) {
-            if ("correlationId".equals(header.key())) {
-                hasCorrelationId = true;
-                break;
-            }
-        }
-        
-        if (!hasCorrelationId) {
+
+        if (!headers.headers("correlationId").iterator().hasNext()) {
             String correlationId = UUID.randomUUID().toString();
             headers.add(new RecordHeader("correlationId", correlationId.getBytes(StandardCharsets.UTF_8)));
         }
-        
+
         return record;
     }
 
