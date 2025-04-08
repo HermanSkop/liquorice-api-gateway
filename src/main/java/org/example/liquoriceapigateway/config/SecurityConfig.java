@@ -32,16 +32,6 @@ public class SecurityConfig {
     private final JwtRoleConverter jwtRoleConverter;
 
     @Bean
-    public SecurityWebFilterChain securityFilterChainAuth(ServerHttpSecurity http) {
-        return http
-                .securityMatcher(pathMatchers(Constants.BASE_PATH + "/auth/**"))
-                .cors(ServerHttpSecurity.CorsSpec::disable)
-                .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(auth -> auth.anyExchange().permitAll())
-                .build();
-    }
-
-    @Bean
     public SecurityWebFilterChain securityFilterChainMain(ServerHttpSecurity http, ReactiveAuthenticationManager jwtAuthenticationManager) {
         return http
                 .securityMatcher(pathMatchers(Constants.BASE_PATH))
@@ -54,7 +44,7 @@ public class SecurityConfig {
                                 Constants.BASE_PATH + "/customers/{customerId}/orders")
                         .hasRole("ADMIN")
                         .pathMatchers(Constants.BASE_PATH + "/cart/**").hasRole("CUSTOMER")
-                        .anyExchange().authenticated()
+                        .anyExchange().permitAll() // TODO: Change to authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
