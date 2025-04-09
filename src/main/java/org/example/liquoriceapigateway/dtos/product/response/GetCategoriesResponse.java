@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.dtos.product;
+package org.example.liquoriceapigateway.dtos.product.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -8,9 +8,8 @@ import lombok.NoArgsConstructor;
 import java.util.List;
 
 @Data
-@Builder
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class GetCategoriesResponse {
     private List<String> categories;
 }

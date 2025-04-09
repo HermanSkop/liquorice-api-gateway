@@ -1,14 +1,13 @@
-package org.example.liquoriceapigateway.dtos.product;
+package org.example.liquoriceapigateway.dtos.product.request;
 
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
 
 @Data
 @SuperBuilder
 @NoArgsConstructor
-public class SetAvailabilityRequestDto {
+public class SetAvailabilityRequest {
     private String productId;
     private boolean isAvailable;
 }

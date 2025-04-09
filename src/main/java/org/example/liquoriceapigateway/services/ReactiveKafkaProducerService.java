@@ -2,110 +2,83 @@ package org.example.liquoriceapigateway.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.header.internals.RecordHeader;
-import org.example.liquoriceapigateway.dtos.product.RequestType;
-import org.springframework.kafka.support.KafkaHeaders;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse;
+import org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest;
+import org.example.liquoriceapigateway.dtos.ProductPreviewDto;
+import org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest;
+import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-import reactor.core.publisher.MonoSink;
-import reactor.kafka.sender.KafkaSender;
-import reactor.kafka.sender.SenderRecord;
 
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 @Slf4j
 @RequiredArgsConstructor
 public class ReactiveKafkaProducerService {
-    
-    private final KafkaSender<String, Object> kafkaSender;
-    private final ConcurrentHashMap<String, MonoSink<Object>> pendingRequests = new ConcurrentHashMap<>();
-    private final ConcurrentHashMap<String, Instant> requestTimestamps = new ConcurrentHashMap<>();
-
-    private final AtomicLong sentCount = new AtomicLong(0);
-    private final AtomicLong completedCount = new AtomicLong(0);
-    private final AtomicLong timeoutCount = new AtomicLong(0);
+    private final ReplyingKafkaTemplate<String, Object, ?> replyingKafkaTemplate;
 
     /**
-     * Sends a message to Kafka and returns a Mono that will complete when the response is received
+     * Generic method to send a message to Kafka and receive a response
      *
      * @param topic The Kafka topic to send to
      * @param data The data to send
      * @return Mono that will emit the response when received
      */
-    public Mono<Object> sendAndReceive(String topic, RequestType type, Object data) {
-        String correlationId = UUID.randomUUID().toString();
-        long currentCount = sentCount.incrementAndGet();
-
-        log.info("Sending request #{} with correlationId {} to topic: {}",
-                currentCount, correlationId, topic);
+    public Mono<Object> sendAndReceive(String topic, Object data) {
         log.debug("Request data: {}", data);
 
-        Mono<Object> responseMono = Mono.create(sink -> pendingRequests.put(correlationId, sink));
-        
-        ProducerRecord<String, Object> producerRecord = new ProducerRecord<>(topic, correlationId, data);
+        ProducerRecord<String, Object> record = new ProducerRecord<>(topic, data);
 
-        producerRecord.headers().add(new RecordHeader(KafkaHeaders.CORRELATION_ID, correlationId.getBytes(StandardCharsets.UTF_8)));
-        producerRecord.headers().add(new RecordHeader("messageType", type.name().getBytes(StandardCharsets.UTF_8)));
-
-        log.info("Sending request with correlationId {} to {}", correlationId, topic);
-
-        return kafkaSender.send(Mono.just(SenderRecord.create(producerRecord, correlationId)))
-                .next()
-                .then(responseMono)
-                .doOnError(e -> {
-                    pendingRequests.remove(correlationId);
-                    requestTimestamps.remove(correlationId);
-                    if (e instanceof java.util.concurrent.TimeoutException) {
-                        timeoutCount.incrementAndGet();
-                        log.warn("Timeout waiting for response to request #{} (correlationId: {})",
-                                currentCount, correlationId);
-                    } else {
-                        log.error("Error for request #{} (correlationId: {}) to topic: {}",
-                                currentCount, correlationId, topic, e);
-                    }
-                });
+        return Mono.fromFuture(() -> replyingKafkaTemplate.sendAndReceive(record).toCompletableFuture())
+                .doOnSubscribe(s -> log.debug("Subscribed to response"))
+                .doOnSuccess(response -> log.debug("Received response"))
+                .doOnError(e -> log.error("Error receiving response, error: {}", e.getMessage()))
+                .onErrorResume(e -> {
+                    log.error("Failed to receive response for request: {}", data, e);
+                    return Mono.error(e);
+                })
+                .map(ConsumerRecord::value);
     }
-    
+
     /**
-     * Called by a Kafka consumer when a response is received
+     * Send a request to get categories and receive a typed response
      *
-     * @param correlationId The correlation ID from the response
-     * @param response The response data
+     * @param topic The Kafka topic to send to
+     * @param request The GetCategoriesRequest
+     * @return Mono that will emit the GetCategoriesResponse when received
      */
-    public void completeResponse(String correlationId, Object response) {
-        MonoSink<Object> pendingRequest = pendingRequests.remove(correlationId);
-        if (pendingRequest != null) {
-            pendingRequest.success(response);
-            log.debug("Completed response for correlationId: {}", correlationId);
-        } else {
-            log.warn("Received response for unknown correlation ID: {}", correlationId);
-        }
+    public Mono<GetCategoriesResponse> getCategories(String topic, GetCategoriesRequest request) {
+        return sendAndReceive(topic, request)
+                .cast(GetCategoriesResponse.class)
+                .doOnNext(response -> log.debug("Received categories response: {}", response));
     }
 
-    @Scheduled(fixedRate = 60000)
-    public void reportStats() {
-        int pendingCount = pendingRequests.size();
-        log.info("Kafka messaging stats - Sent: {}, Completed: {}, Timeouts: {}, Pending: {}",
-                sentCount.get(), completedCount.get(), timeoutCount.get(), pendingCount);
+    /**
+     * Send a request to get products and receive a paged response
+     *
+     * @param topic The Kafka topic to send to
+     * @param request The GetProductsRequestDto
+     * @return Mono that will emit a paged response of ProductPreviewDto when received
+     */
+    /*public Mono<PagedResponse<ProductPreviewDto>> getProducts(String topic, GetProductsRequestDto request) {
+        *//*return sendAndReceive(topic, request)
+                .cast(PagedResponse.class)
+                .doOnNext(response -> log.debug("Received products response: {}", response));*//*
+    }*/
 
-        // Check for long-running pending requests
-        if (pendingCount > 0) {
-            Instant now = Instant.now();
-            requestTimestamps.forEach((correlationId, timestamp) -> {
-                Duration pendingDuration = Duration.between(timestamp, now);
-                if (pendingDuration.toSeconds() > 30) {
-                    log.warn("Request with correlationId {} has been pending for {} seconds",
-                            correlationId, pendingDuration.toSeconds());
-                }
-            });
-        }
+    /**
+     * Send a request to set product availability and receive the updated product
+     *
+     * @param topic The Kafka topic to send to
+     * @param request The SetAvailabilityRequestDto
+     * @return Mono that will emit the updated ProductPreviewDto when received
+     */
+    public Mono<ProductPreviewDto> setProductAvailability(String topic, SetAvailabilityRequest request) {
+        return sendAndReceive(topic, request)
+                .cast(ProductPreviewDto.class)
+                .doOnNext(response -> log.debug("Received updated product: {}", response));
     }
 }

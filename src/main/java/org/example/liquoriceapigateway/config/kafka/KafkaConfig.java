@@ -2,6 +2,7 @@ package org.example.liquoriceapigateway.config.kafka;
 
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
+import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.common.serialization.StringDeserializer;
 import org.apache.kafka.common.serialization.StringSerializer;
 import org.springframework.beans.factory.annotation.Value;
@@ -9,12 +10,17 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
 import org.springframework.kafka.core.*;
+import org.springframework.kafka.listener.ConcurrentMessageListenerContainer;
+import org.springframework.kafka.listener.ContainerProperties;
+import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
+import org.springframework.kafka.support.KafkaHeaders;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
 import org.springframework.kafka.support.serializer.JsonSerializer;
 import reactor.kafka.receiver.ReceiverOptions;
 import reactor.kafka.sender.KafkaSender;
 import reactor.kafka.sender.SenderOptions;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -27,25 +33,57 @@ public class KafkaConfig {
     @Value("${spring.kafka.consumer.group-id}")
     private String groupId;
 
+    @Value("${kafka.request.timeout:10000}")
+    private long requestTimeout;
+
+    @Value("${kafka.topics.product-replies}")
+    private String productRepliesTopic;
+
     @Bean
     public ProducerFactory<String, Object> producerFactory() {
         Map<String, Object> configProps = new HashMap<>();
         configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
         configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JsonSerializer.class);
-        // For guaranteed delivery
+        configProps.put(JsonSerializer.TYPE_MAPPINGS,
+                "getCategoriesRequest:org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest," +
+                "getProductsRequest:org.example.liquoriceapigateway.dtos.product.request.GetProductsRequest," +
+                "setAvailabilityRequest:org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest");
+
         configProps.put(ProducerConfig.ACKS_CONFIG, "all");
         configProps.put(ProducerConfig.RETRIES_CONFIG, 3);
+        configProps.put(ProducerConfig.MAX_IN_FLIGHT_REQUESTS_PER_CONNECTION, 1);
+        configProps.put(ProducerConfig.ENABLE_IDEMPOTENCE_CONFIG, true);
 
-        configProps.put(ProducerConfig.INTERCEPTOR_CLASSES_CONFIG,
-                "org.example.liquoriceapigateway.config.kafka.CorrelationIdProducerInterceptor");
         return new DefaultKafkaProducerFactory<>(configProps);
     }
 
     @Bean
-    public KafkaTemplate<String, Object> kafkaTemplate() {
-        return new KafkaTemplate<>(producerFactory());
+    public ReplyingKafkaTemplate<String, Object, ?> replyingKafkaTemplate(
+            ProducerFactory<String, Object> pf,
+            ConcurrentMessageListenerContainer<String, Object> repliesContainer) {
+        ReplyingKafkaTemplate<String, Object, ?> template =
+            new ReplyingKafkaTemplate<>(pf, repliesContainer);
+        // Set default timeout
+        template.setDefaultReplyTimeout(Duration.ofSeconds(10));
+        return template;
     }
+
+    @Bean
+    public ConcurrentMessageListenerContainer<String, Object> repliesContainer(
+            ConcurrentKafkaListenerContainerFactory<String, Object> factory) {
+        ConcurrentMessageListenerContainer<String, Object> container =
+            factory.createContainer("product-replies");
+        container.getContainerProperties().setGroupId("gateway-group-reply");
+        container.getContainerProperties().setLogContainerConfig(true);
+        // Important: Set AckMode to MANUAL_IMMEDIATE
+        container.getContainerProperties().setAckMode(
+            ContainerProperties.AckMode.MANUAL_IMMEDIATE);
+        // Set to single concurrency for request-reply pattern
+        container.setConcurrency(1);
+        return container;
+    }
+
 
     @Bean
     public KafkaSender<String, Object> kafkaSender() {
@@ -68,21 +106,21 @@ public class KafkaConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId);
-        // Configure consumer
         props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
         props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        
-        JsonDeserializer<Object> jsonDeserializer = new JsonDeserializer<>();
-        jsonDeserializer.addTrustedPackages("*");
-        // Explicitly adding our model packages
-        jsonDeserializer.addTrustedPackages(
-            "org.example.liquoriceapigateway.models",
-            "org.example.liquorice.models");
+        props.put(JsonDeserializer.TRUSTED_PACKAGES, "*");
+        props.put(JsonDeserializer.TYPE_MAPPINGS,
+                "org.example.liqouriceproductservice.dtos.response.GetCategoriesResponse:org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse," +
+                "getCategoriesResponse:org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse," +
+                "getProductsResponse:org.example.liquoriceapigateway.dtos.product.response.GetProductsResponse," +
+                "setAvailabilityResponse:org.example.liquoriceapigateway.dtos.product.response.SetAvailabilityResponse," +
+                "productPreviewDto:org.example.liquoriceapigateway.dtos.ProductPreviewDto");
 
-        return new DefaultKafkaConsumerFactory<>(
-                props, 
-                new StringDeserializer(),
-                jsonDeserializer);
+        // Add value type header to ensure proper deserialization
+        props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
+        props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);
+
+        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new JsonDeserializer<>(Object.class));
     }
 
     @Bean

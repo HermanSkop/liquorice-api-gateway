@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.dtos.product;
+package org.example.liquoriceapigateway.dtos.product.response;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +12,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class GetProductsResponseDto {
+public class GetProductsResponse {
     private List<ProductPreviewDto> content;
     private int pageNumber;
     private int pageSize;
