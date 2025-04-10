@@ -2,7 +2,7 @@ package org.example.liquoriceapigateway.controllers;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.example.liquoriceapigateway.dtos.ProductPreviewDto;
+import org.example.liquoriceapigateway.dtos.ProductDto;
 import org.example.liquoriceapigateway.exceptions.NotFoundException;
 import org.example.liquoriceapigateway.dtos.PagedResponse;
 import org.example.liquoriceapigateway.services.ProductService;
@@ -26,7 +26,7 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public Mono<PagedResponse<ProductPreviewDto>> getProducts(
+    public Mono<PagedResponse<ProductDto>> getProducts(
             @PageableDefault Pageable pageable,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<String> categories,
@@ -49,7 +49,7 @@ public class ProductController {
     }
 
     @PatchMapping("/{productId}/available")
-    public Mono<ResponseEntity<ProductPreviewDto>> setAvailable(
+    public Mono<ResponseEntity<ProductDto>> setAvailable(
             @RequestBody boolean isAvailable,
             @PathVariable String productId) {
         return productService.setAvailable(productId, isAvailable)

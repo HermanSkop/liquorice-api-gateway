@@ -4,15 +4,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.producer.ProducerRecord;
-import org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse;
-import org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest;
-import org.example.liquoriceapigateway.dtos.ProductPreviewDto;
+import org.example.liquoriceapigateway.dtos.ProductDto;
 import org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest;
+import org.example.liquoriceapigateway.dtos.product.response.SetAvailabilityResponse;
 import org.springframework.kafka.requestreply.ReplyingKafkaTemplate;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
-
-import java.util.UUID;
 
 @Service
 @Slf4j
@@ -44,41 +41,16 @@ public class ReactiveKafkaProducerService {
     }
 
     /**
-     * Send a request to get categories and receive a typed response
-     *
-     * @param topic The Kafka topic to send to
-     * @param request The GetCategoriesRequest
-     * @return Mono that will emit the GetCategoriesResponse when received
-     */
-    public Mono<GetCategoriesResponse> getCategories(String topic, GetCategoriesRequest request) {
-        return sendAndReceive(topic, request)
-                .cast(GetCategoriesResponse.class)
-                .doOnNext(response -> log.debug("Received categories response: {}", response));
-    }
-
-    /**
-     * Send a request to get products and receive a paged response
-     *
-     * @param topic The Kafka topic to send to
-     * @param request The GetProductsRequestDto
-     * @return Mono that will emit a paged response of ProductPreviewDto when received
-     */
-    /*public Mono<PagedResponse<ProductPreviewDto>> getProducts(String topic, GetProductsRequestDto request) {
-        *//*return sendAndReceive(topic, request)
-                .cast(PagedResponse.class)
-                .doOnNext(response -> log.debug("Received products response: {}", response));*//*
-    }*/
-
-    /**
      * Send a request to set product availability and receive the updated product
      *
      * @param topic The Kafka topic to send to
      * @param request The SetAvailabilityRequestDto
      * @return Mono that will emit the updated ProductPreviewDto when received
      */
-    public Mono<ProductPreviewDto> setProductAvailability(String topic, SetAvailabilityRequest request) {
+    public Mono<ProductDto> setProductAvailability(String topic, SetAvailabilityRequest request) {
         return sendAndReceive(topic, request)
-                .cast(ProductPreviewDto.class)
+                .cast(SetAvailabilityResponse.class)
+                .map(SetAvailabilityResponse::getProduct)
                 .doOnNext(response -> log.debug("Received updated product: {}", response));
     }
 }

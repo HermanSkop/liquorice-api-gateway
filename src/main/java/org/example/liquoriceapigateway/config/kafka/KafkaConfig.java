@@ -87,11 +87,9 @@ public class KafkaConfig {
         Map<String, Object> props = new HashMap<>();
         props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
         props.put(JsonDeserializer.TYPE_MAPPINGS,
-                "org.example.liqouriceproductservice.dtos.response.GetCategoriesResponse:org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse," +
                 "getCategoriesResponse:org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse," +
                 "getProductsResponse:org.example.liquoriceapigateway.dtos.product.response.GetProductsResponse," +
-                "setAvailabilityResponse:org.example.liquoriceapigateway.dtos.product.response.SetAvailabilityResponse," +
-                "productPreviewDto:org.example.liquoriceapigateway.dtos.ProductPreviewDto");
+                "setAvailabilityResponse:org.example.liquoriceapigateway.dtos.product.response.SetAvailabilityResponse");
 
         props.put(JsonDeserializer.USE_TYPE_INFO_HEADERS, true);
         props.put(JsonDeserializer.REMOVE_TYPE_INFO_HEADERS, false);

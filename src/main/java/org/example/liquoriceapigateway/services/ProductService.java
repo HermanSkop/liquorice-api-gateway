@@ -3,7 +3,7 @@ package org.example.liquoriceapigateway.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.liquoriceapigateway.dtos.PagedResponse;
-import org.example.liquoriceapigateway.dtos.ProductPreviewDto;
+import org.example.liquoriceapigateway.dtos.ProductDto;
 import org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest;
 import org.example.liquoriceapigateway.dtos.product.request.GetProductsRequest;
 import org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest;
@@ -27,7 +27,7 @@ public class ProductService {
     @Value("${kafka.topics.liquorice-product}")
     private String productTopic;
 
-    public Mono<PagedResponse<ProductPreviewDto>> getProductPreviewDtos(Pageable pageable, String search, List<String> categories) {
+    public Mono<PagedResponse<ProductDto>> getProductPreviewDtos(Pageable pageable, String search, List<String> categories) {
         log.info("Getting product previews with search='{}', categories={}, page={}, size={}",
                 search, categories, pageable.getPageNumber(), pageable.getPageSize());
 
@@ -37,7 +37,12 @@ public class ProductService {
                 .categories(categories)
                 .build();
 
-        return null; /*kafkaProducerService.getProducts(productTopic, payload)
+        return null; /*kafkaProducerService.sendAndReceive(productTopic, payload)
+                .map(response -> {
+                    log.debug("Received products response: {}", response);
+                    return (GetProductsResponse) response;
+                })
+                .map(GetProductsResponse::getContent)
                 .doOnSubscribe(s -> log.debug("Subscribed to products request response"))
                 .doOnSuccess(response -> log.info("Received {} products",
                     response.getContent() != null ? response.getContent().size() : 0))
@@ -47,17 +52,15 @@ public class ProductService {
     public Mono<List<String>> getAllCategories() {
         log.debug("Sending GET_CATEGORIES request to topic: {}", productTopic);
 
-        GetCategoriesRequest request = new GetCategoriesRequest();
 
-        return kafkaProducerService.getCategories(productTopic, request)
-            .doOnSubscribe(s -> log.debug("Subscribed to categories request response"))
-            .doOnSuccess(response -> log.info("Received {} categories",
-                response.getCategories().size()))
-            .doOnError(e -> log.error("Failed to get product categories", e))
-            .map(GetCategoriesResponse::getCategories);
+        return kafkaProducerService.sendAndReceive(productTopic, new GetCategoriesRequest()).cast(GetCategoriesResponse.class)
+                .doOnNext(response -> log.debug("Received categories response: {}", response))
+                .doOnSuccess(response -> log.info("Received {} categories", response.getCategories().size()))
+                .doOnError(e -> log.error("Failed to get product categories", e))
+                .map(GetCategoriesResponse::getCategories);
     }
 
-    public Mono<ProductPreviewDto> setAvailable(String productId, boolean isAvailable) {
+    public Mono<ProductDto> setAvailable(String productId, boolean isAvailable) {
         log.info("Setting product {} availability to {}", productId, isAvailable);
 
         SetAvailabilityRequest payload = SetAvailabilityRequest.builder()
@@ -67,8 +70,8 @@ public class ProductService {
 
         log.debug("Sending SET_AVAILABLE request to topic: {}", productTopic);
         return kafkaProducerService.setProductAvailability(productTopic, payload)
-            .doOnSubscribe(s -> log.debug("Subscribed to set availability request response"))
-            .doOnSuccess(response -> log.info("Successfully updated availability for product {}", productId))
-            .doOnError(e -> log.error("Failed to update product availability for {}", productId, e));
+                .doOnSubscribe(s -> log.debug("Subscribed to set availability request response"))
+                .doOnSuccess(response -> log.info("Successfully updated availability for product {}", productId))
+                .doOnError(e -> log.error("Failed to update product availability for {}", productId, e));
     }
 }
