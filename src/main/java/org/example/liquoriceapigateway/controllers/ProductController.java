@@ -11,6 +11,8 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.data.web.PageableDefault;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.web.bind.annotation.*;
 import reactor.core.publisher.Mono;
 
@@ -31,7 +33,12 @@ public class ProductController {
             @RequestParam(required = false) int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<String> categories,
-            @RequestParam(required = false) String sort) {
+            @RequestParam(required = false) String sort,
+            Authentication authentication) {
+
+        if (authentication instanceof JwtAuthenticationToken jwt) {
+            log.debug("Request from user with authorities: {}", jwt.getAuthorities());
+        }
 
         return productService.getProductPreviewDtos(search, categories, page, size, List.of(sort.split(",")));
     }

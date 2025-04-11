@@ -5,17 +5,18 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.core.convert.converter.Converter;
 import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.oauth2.jwt.Jwt;
+import org.springframework.security.oauth2.core.OAuth2AuthenticationException;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager;
-import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.security.web.server.authentication.HttpStatusServerEntryPoint;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import reactor.core.publisher.Mono;
@@ -36,7 +37,7 @@ public class SecurityConfig {
     private String jwtSecret;
 
     @Bean
-    public SecurityWebFilterChain securityFilterChainMain(ServerHttpSecurity http, ReactiveAuthenticationManager jwtAuthenticationManager) {
+    public SecurityWebFilterChain securityFilterChainMain(ServerHttpSecurity http, ReactiveAuthenticationManager authenticationManager) {
         return http
                 .securityMatcher(pathMatchers(Constants.BASE_PATH + "/**"))
                 .cors(cors -> cors.configurationSource(reactiveCorsConfigurationSource()))
@@ -51,26 +52,20 @@ public class SecurityConfig {
                         .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
-                        .jwt(jwt -> jwt
-                                .jwtAuthenticationConverter(grantedAuthoritiesExtractor())
-                                .authenticationManager(jwtAuthenticationManager)
-                        )
+                        .jwt(jwt -> jwt.authenticationManager(authenticationManager))
+                        .authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED))
                 )
                 .build();
     }
 
     @Bean
-    public Converter<Jwt, Mono<org.springframework.security.authentication.AbstractAuthenticationToken>> grantedAuthoritiesExtractor() {
-        return new ReactiveJwtAuthenticationConverterAdapter(jwtRoleConverter);
-    }
-
-    @Bean
-    public ReactiveAuthenticationManager jwtAuthenticationManager(ReactiveJwtDecoder jwtDecoder) {
+    public ReactiveAuthenticationManager authenticationManager(ReactiveJwtDecoder jwtDecoder) {
         JwtReactiveAuthenticationManager authManager = new JwtReactiveAuthenticationManager(jwtDecoder);
         return authentication -> authManager.authenticate(authentication)
-                .filter(auth -> auth.isAuthenticated() && auth instanceof org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken)
-                .cast(org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken.class)
-                .flatMap(blacklistTokenValidator::validateToken);
+                .flatMap(auth -> {
+                    if (auth instanceof JwtAuthenticationToken jwtAuth) return blacklistTokenValidator.validateToken(jwtAuth);
+                    return Mono.just(auth);
+                });
     }
 
     @Bean
@@ -78,7 +73,6 @@ public class SecurityConfig {
         SecretKey signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         return NimbusReactiveJwtDecoder.withSecretKey(signingKey).build();
     }
-
 
     private CorsConfigurationSource reactiveCorsConfigurationSource() {
         return request -> {
