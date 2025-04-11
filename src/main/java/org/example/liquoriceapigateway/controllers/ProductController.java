@@ -27,20 +27,13 @@ public class ProductController {
 
     @GetMapping
     public Mono<PagedResponse<ProductDto>> getProducts(
-            @PageableDefault Pageable pageable,
+            @RequestParam(required = false) int page,
+            @RequestParam(required = false) int size,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<String> categories,
             @RequestParam(required = false) String sort) {
 
-        if (sort != null && !sort.isEmpty()) {
-            pageable = PageRequest.of(
-                    pageable.getPageNumber(),
-                    pageable.getPageSize(),
-                    Sort.by(sort.split(","))
-            );
-        }
-
-        return productService.getProductPreviewDtos(pageable, search, categories);
+        return productService.getProductPreviewDtos(search, categories, page, size, List.of(sort.split(",")));
     }
 
     @GetMapping("/categories")

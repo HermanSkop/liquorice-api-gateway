@@ -3,7 +3,6 @@ package org.example.liquoriceapigateway.dtos.product.request;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.SuperBuilder;
-import org.springframework.data.domain.Pageable;
 
 import java.util.List;
 
@@ -11,7 +10,9 @@ import java.util.List;
 @SuperBuilder
 @NoArgsConstructor
 public class GetProductsRequest {
-    private Pageable pageable;
+    private int pageNumber;
+    private int pageSize;
+    private List<String> sort;
     private String search;
     private List<String> categories;
 }

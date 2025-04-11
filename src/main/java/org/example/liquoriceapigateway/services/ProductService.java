@@ -8,9 +8,10 @@ import org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest
 import org.example.liquoriceapigateway.dtos.product.request.GetProductsRequest;
 import org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest;
 import org.example.liquoriceapigateway.dtos.product.response.GetCategoriesResponse;
+import org.example.liquoriceapigateway.dtos.product.response.GetProductsResponse;
+import org.example.liquoriceapigateway.dtos.product.response.SetAvailabilityResponse;
 import org.modelmapper.ModelMapper;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import reactor.core.publisher.Mono;
 
@@ -27,26 +28,26 @@ public class ProductService {
     @Value("${kafka.topics.liquorice-product}")
     private String productTopic;
 
-    public Mono<PagedResponse<ProductDto>> getProductPreviewDtos(Pageable pageable, String search, List<String> categories) {
+    public Mono<PagedResponse<ProductDto>> getProductPreviewDtos(String search, List<String> categories, int pageNumber, int pageSize, List<String> sortList) {
         log.info("Getting product previews with search='{}', categories={}, page={}, size={}",
-                search, categories, pageable.getPageNumber(), pageable.getPageSize());
+                search, categories, pageNumber, pageSize);
 
         GetProductsRequest payload = GetProductsRequest.builder()
-                .pageable(pageable)
+                .pageNumber(pageNumber)
+                .pageSize(pageSize)
+                .sort(sortList)
                 .search(search)
                 .categories(categories)
                 .build();
 
-        return null; /*kafkaProducerService.sendAndReceive(productTopic, payload)
+        return kafkaProducerService.sendAndReceive(productTopic, payload)
                 .map(response -> {
                     log.debug("Received products response: {}", response);
                     return (GetProductsResponse) response;
                 })
-                .map(GetProductsResponse::getContent)
+                .map(GetProductsResponse::getProducts)
                 .doOnSubscribe(s -> log.debug("Subscribed to products request response"))
-                .doOnSuccess(response -> log.info("Received {} products",
-                    response.getContent() != null ? response.getContent().size() : 0))
-                .doOnError(e -> log.error("Failed to get products", e));*/
+                .doOnError(e -> log.error("Failed to get products", e));
     }
 
     public Mono<List<String>> getAllCategories() {
@@ -69,9 +70,9 @@ public class ProductService {
                 .build();
 
         log.debug("Sending SET_AVAILABLE request to topic: {}", productTopic);
-        return kafkaProducerService.setProductAvailability(productTopic, payload)
-                .doOnSubscribe(s -> log.debug("Subscribed to set availability request response"))
-                .doOnSuccess(response -> log.info("Successfully updated availability for product {}", productId))
-                .doOnError(e -> log.error("Failed to update product availability for {}", productId, e));
+        return kafkaProducerService.sendAndReceive(productTopic, payload)
+                .cast(SetAvailabilityResponse.class)
+                .map(SetAvailabilityResponse::getProduct)
+                .doOnNext(response -> log.debug("Received updated product: {}", response));
     }
 }

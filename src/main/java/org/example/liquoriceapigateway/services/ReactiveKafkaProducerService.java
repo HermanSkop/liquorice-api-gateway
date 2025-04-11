@@ -39,18 +39,4 @@ public class ReactiveKafkaProducerService {
                 })
                 .map(ConsumerRecord::value);
     }
-
-    /**
-     * Send a request to set product availability and receive the updated product
-     *
-     * @param topic The Kafka topic to send to
-     * @param request The SetAvailabilityRequestDto
-     * @return Mono that will emit the updated ProductPreviewDto when received
-     */
-    public Mono<ProductDto> setProductAvailability(String topic, SetAvailabilityRequest request) {
-        return sendAndReceive(topic, request)
-                .cast(SetAvailabilityResponse.class)
-                .map(SetAvailabilityResponse::getProduct)
-                .doOnNext(response -> log.debug("Received updated product: {}", response));
-    }
 }
