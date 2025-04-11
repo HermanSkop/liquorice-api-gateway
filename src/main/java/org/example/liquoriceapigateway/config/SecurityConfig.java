@@ -16,9 +16,13 @@ import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
 import org.springframework.security.oauth2.server.resource.authentication.JwtReactiveAuthenticationManager;
 import org.springframework.security.oauth2.server.resource.authentication.ReactiveJwtAuthenticationConverterAdapter;
 import org.springframework.security.web.server.SecurityWebFilterChain;
+import org.springframework.web.cors.CorsConfiguration;
+import org.springframework.web.cors.reactive.CorsConfigurationSource;
 import reactor.core.publisher.Mono;
 
 import javax.crypto.SecretKey;
+
+import java.util.List;
 
 import static org.springframework.security.web.server.util.matcher.ServerWebExchangeMatchers.pathMatchers;
 
@@ -35,7 +39,7 @@ public class SecurityConfig {
     public SecurityWebFilterChain securityFilterChainMain(ServerHttpSecurity http, ReactiveAuthenticationManager jwtAuthenticationManager) {
         return http
                 .securityMatcher(pathMatchers(Constants.BASE_PATH + "/**"))
-                .cors(ServerHttpSecurity.CorsSpec::disable)
+                .cors(cors -> cors.configurationSource(reactiveCorsConfigurationSource()))
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.PATCH,
@@ -73,5 +77,18 @@ public class SecurityConfig {
     public ReactiveJwtDecoder reactiveJwtDecoder() {
         SecretKey signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         return NimbusReactiveJwtDecoder.withSecretKey(signingKey).build();
+    }
+
+
+    private CorsConfigurationSource reactiveCorsConfigurationSource() {
+        return request -> {
+            CorsConfiguration config = new CorsConfiguration();
+            config.setAllowCredentials(true);
+            config.setAllowedOrigins(List.of(Constants.CLIENT_SERVER));
+            config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+            config.setAllowedHeaders(List.of("*"));
+            config.setMaxAge(3600L);
+            return config;
+        };
     }
 }
