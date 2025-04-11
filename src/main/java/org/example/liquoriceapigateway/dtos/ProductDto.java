@@ -1,9 +1,6 @@
 package org.example.liquoriceapigateway.dtos;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Data;
-import lombok.NoArgsConstructor;
+import lombok.*;
 
 import java.util.List;
 
@@ -11,6 +8,7 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
+@ToString(exclude = "image")
 public class ProductDto {
     private String id;
     private String name;

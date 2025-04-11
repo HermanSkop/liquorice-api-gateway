@@ -2,6 +2,7 @@ package org.example.liquoriceapigateway.config;
 
 import io.jsonwebtoken.security.Keys;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
@@ -9,8 +10,6 @@ import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.ReactiveAuthenticationManager;
 import org.springframework.security.config.annotation.web.reactive.EnableWebFluxSecurity;
 import org.springframework.security.config.web.server.ServerHttpSecurity;
-import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
-import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.security.oauth2.jwt.NimbusReactiveJwtDecoder;
 import org.springframework.security.oauth2.jwt.ReactiveJwtDecoder;
@@ -27,14 +26,15 @@ import static org.springframework.security.web.server.util.matcher.ServerWebExch
 @EnableWebFluxSecurity
 @RequiredArgsConstructor
 public class SecurityConfig {
-    private final JwtConfig jwtConfig;
     private final BlacklistTokenValidator blacklistTokenValidator;
     private final JwtRoleConverter jwtRoleConverter;
+    @Value("${jwt.secret}")
+    private String jwtSecret;
 
     @Bean
     public SecurityWebFilterChain securityFilterChainMain(ServerHttpSecurity http, ReactiveAuthenticationManager jwtAuthenticationManager) {
         return http
-                .securityMatcher(pathMatchers(Constants.BASE_PATH))
+                .securityMatcher(pathMatchers(Constants.BASE_PATH + "/**"))
                 .cors(ServerHttpSecurity.CorsSpec::disable)
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(auth -> auth
@@ -44,7 +44,7 @@ public class SecurityConfig {
                                 Constants.BASE_PATH + "/customers/{customerId}/orders")
                         .hasRole("ADMIN")
                         .pathMatchers(Constants.BASE_PATH + "/cart/**").hasRole("CUSTOMER")
-                        .anyExchange().permitAll() // TODO: Change to authenticated()
+                        .anyExchange().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt
@@ -70,13 +70,8 @@ public class SecurityConfig {
     }
 
     @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
-    }
-
-    @Bean
     public ReactiveJwtDecoder reactiveJwtDecoder() {
-        SecretKey signingKey = Keys.hmacShaKeyFor(jwtConfig.getSecretKey().getBytes());
+        SecretKey signingKey = Keys.hmacShaKeyFor(jwtSecret.getBytes());
         return NimbusReactiveJwtDecoder.withSecretKey(signingKey).build();
     }
 }
