@@ -5,9 +5,7 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.example.liquoriceapigateway.dtos.PagedResponse;
-import org.example.liquoriceapigateway.dtos.ProductDto;
-
-import java.util.List;
+import org.example.liquoriceapigateway.dtos.product.ProductDto;
 
 @Data
 @Builder

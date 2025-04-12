@@ -3,7 +3,7 @@ package org.example.liquoriceapigateway.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.liquoriceapigateway.dtos.PagedResponse;
-import org.example.liquoriceapigateway.dtos.ProductDto;
+import org.example.liquoriceapigateway.dtos.product.ProductDto;
 import org.example.liquoriceapigateway.dtos.product.request.GetCategoriesRequest;
 import org.example.liquoriceapigateway.dtos.product.request.GetProductsRequest;
 import org.example.liquoriceapigateway.dtos.product.request.SetAvailabilityRequest;

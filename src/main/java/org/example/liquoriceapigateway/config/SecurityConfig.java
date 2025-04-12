@@ -32,7 +32,6 @@ import static org.springframework.security.web.server.util.matcher.ServerWebExch
 @RequiredArgsConstructor
 public class SecurityConfig {
     private final BlacklistTokenValidator blacklistTokenValidator;
-    private final JwtRoleConverter jwtRoleConverter;
     @Value("${jwt.secret}")
     private String jwtSecret;
 
@@ -44,7 +43,6 @@ public class SecurityConfig {
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
                 .authorizeExchange(auth -> auth
                         .pathMatchers(HttpMethod.PATCH,
-                                Constants.BASE_PATH + "/products/{productId}/available",
                                 Constants.BASE_PATH + "/orders/{orderId}/refund",
                                 Constants.BASE_PATH + "/customers/{customerId}/orders")
                         .hasRole("ADMIN")

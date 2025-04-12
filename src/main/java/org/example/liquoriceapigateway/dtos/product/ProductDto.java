@@ -1,4 +1,4 @@
-package org.example.liquoriceapigateway.dtos;
+package org.example.liquoriceapigateway.dtos.product;
 
 import lombok.*;
 
