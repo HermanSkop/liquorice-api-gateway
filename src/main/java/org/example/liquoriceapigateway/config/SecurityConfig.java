@@ -41,14 +41,7 @@ public class SecurityConfig {
                 .securityMatcher(pathMatchers(Constants.BASE_PATH + "/**"))
                 .cors(cors -> cors.configurationSource(reactiveCorsConfigurationSource()))
                 .csrf(ServerHttpSecurity.CsrfSpec::disable)
-                .authorizeExchange(auth -> auth
-                        .pathMatchers(HttpMethod.PATCH,
-                                Constants.BASE_PATH + "/orders/{orderId}/refund",
-                                Constants.BASE_PATH + "/customers/{customerId}/orders")
-                        .hasRole("ADMIN")
-                        .pathMatchers(Constants.BASE_PATH + "/cart/**").hasRole("CUSTOMER")
-                        .anyExchange().authenticated()
-                )
+                .authorizeExchange(auth -> auth.anyExchange().permitAll())
                 .oauth2ResourceServer(oauth2 -> oauth2
                         .jwt(jwt -> jwt.authenticationManager(authenticationManager))
                         .authenticationEntryPoint(new HttpStatusServerEntryPoint(HttpStatus.UNAUTHORIZED))

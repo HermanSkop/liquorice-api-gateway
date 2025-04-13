@@ -23,10 +23,6 @@ public class GatewayConfig {
                         .path(basePath + "/orders/**")
                         .uri("lb://liquorice-order-service"))
 
-                .route("customer-service", r -> r
-                        .path(basePath + "/customers/**")
-                        .uri("lb://liquorice-customer-service"))
-
                 .route("cart-service", r -> r
                         .path(basePath + "/cart/**")
                         .uri("lb://liquorice-cart-service"))
@@ -34,6 +30,10 @@ public class GatewayConfig {
                 .route("auth-service", r -> r
                         .path(basePath + "/auth/**")
                         .uri("lb://liquorice-auth-service"))
+
+                .route("payment-service", r -> r
+                        .path(basePath + "/payments/**")
+                        .uri("lb://liquorice-payment-service"))
                 .build();
     }
 
